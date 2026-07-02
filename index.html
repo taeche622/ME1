@@ -9,20 +9,34 @@
     
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Malgun Gothic', sans-serif; display: flex; flex-direction: column; hight: 100vh; height: 100vh; overflow: hidden; }
+        body { font-family: 'Malgun Gothic', sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
         /* 상단 네비게이션 및 정답 영역 */
         header { background: #2c3e50; color: white; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 10; }
-        .controls { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
-        select, button { padding: 8px 12px; font-size: 14px; border-radius: 4px; border: none; cursor: pointer; }
-        select { background: white; color: #333; }
         
-        .btn-num { background: #34495e; color: white; transition: all 0.2s; }
-        .btn-num:hover { background: #3498db; }
+        /* 행별 레이아웃 구분을 위한 스타일 */
+        .control-row { display: flex; align-items: center; gap: 15px; margin-bottom: 10px; flex-wrap: wrap; }
+        .row-title { font-size: 14px; font-weight: bold; color: #bdc3c7; min-width: 50px; }
+        .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+
+        /* 공통 버튼 스타일 */
+        button { padding: 6px 12px; font-size: 14px; border-radius: 4px; border: none; cursor: pointer; transition: all 0.2s; }
+        
+        /* 그룹별 버튼 색상 구분 */
+        .btn-year { background: #34495e; color: white; }
+        .btn-year:hover { background: #1abc9c; }
+        .btn-year.active { background: #1abc9c; font-weight: bold; }
+
+        .btn-month { background: #34495e; color: white; }
+        .btn-month:hover { background: #9b59b6; }
+        .btn-month.active { background: #9b59b6; font-weight: bold; }
+
+        .btn-num { background: #7f8c8d; color: white; }
+        .btn-num:hover { background: #e74c3c; }
         .btn-num.active { background: #e74c3c; font-weight: bold; }
 
         /* 정답 표시 바 */
-        .answer-box { background: #ecf0f1; color: #2c3e50; padding: 10px 15px; border-radius: 4px; font-size: 16px; font-weight: bold; border-left: 5px solid #e74c3c; min-height: 44px; display: flex; align-items: center; }
+        .answer-box { background: #ecf0f1; color: #2c3e50; padding: 10px 15px; border-radius: 4px; font-size: 16px; font-weight: bold; border-left: 5px solid #e74c3c; min-height: 44px; display: flex; align-items: center; margin-top: 5px; }
 
         /* 메인 컨텐츠 영역 */
         .main-container { display: flex; flex: 1; overflow: hidden; background: #eee; }
@@ -35,20 +49,26 @@
 <body>
 
     <header>
-        <div class="controls">
-            <select id="select-year">
-                <option value="2025">2025년</option>
-                <option value="2026">2026년</option>
-            </select>
-            <select id="select-month">
-                <option value="03">3월</option>
-                <option value="09">9월</option>
-            </select>
-            <div id="button-group-numbers">
+        <div class="control-row">
+            <span class="row-title">연도</span>
+            <div id="group-year" class="btn-group">
                 </div>
         </div>
+
+        <div class="control-row">
+            <span class="row-title">월</span>
+            <div id="group-month" class="btn-group">
+                </div>
+        </div>
+
+        <div class="control-row">
+            <span class="row-title">번호</span>
+            <div id="group-number" class="btn-group">
+                </div>
+        </div>
+
         <div class="answer-box" id="answer-display">
-            문제를 선택하면 정답이 이곳에 표시됩니다.
+            연도와 월을 선택한 후, 문제 번호를 클릭하면 정답이 표시됩니다.
         </div>
     </header>
 
@@ -59,126 +79,154 @@
     </div>
 
     <script>
-        // PDF.js 워커 경로 설정 (필수)
+        // PDF.js 워커 경로 설정
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
-        // 1. 문제별 데이터 설정 (년도-월-번호 데이터베이스)
-        // page: PDF 내의 페이지 번호
-        // targetY: 페이지 상단에서부터 이동할 세로 좌표 비율 (0 ~ 1)
-        // scale: 확대 비율 (1.5 ~ 2.5 추천)
-        // answer: 상단에 보여줄 정답 문구
+        // 데이터 생성용 기본 옵션 배열
+        const years = ["2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"];
+        const months = ["03", "04", "06", "07", "09", "10", "11"];
+
+        // [데이터베이스 설정] 필요한 연도-월 조합의 문제 데이터들을 여기에 채워 넣으시면 됩니다.
         const examData = {
-            "2026-03": {
+            "2017-03": {
+                1: { page: 1, targetY: 0.1, scale: 2.0, answer: "정답: ③" },
+                2: { page: 1, targetY: 0.5, scale: 2.0, answer: "정답: ①" }
+            },
+            "2025-09": {
                 1: { page: 1, targetY: 0.1, scale: 2.0, answer: "정답: ①" },
                 2: { page: 1, targetY: 0.5, scale: 2.0, answer: "정답: ④" },
-                3: { page: 2, targetY: 0.1, scale: 1.8, answer: "정답: ⑤ (오답률 65%)" },
+                3: { page: 2, targetY: 0.1, scale: 1.8, answer: "정답: ⑤" },
                 4: { page: 2, targetY: 0.6, scale: 2.2, answer: "정답: ③" }
-            },
-            "2026-06": {
-                1: { page: 1, targetY: 0.1, scale: 2.0, answer: "정답: ②" },
-                2: { page: 1, targetY: 0.55, scale: 2.0, answer: "정답: ③" }
             }
         };
 
-        // 전역 상태 변수
+        // 선택 상태 저장 변수
+        let selectedYear = "2026"; // 기본 초기값
+        let selectedMonth = "03"; // 기본 초기값
         let currentPdf = null;
         let currentRenderTask = null;
 
-        // DOM 엘리먼트 추출
-        const selectYear = document.getElementById('select-year');
-        const selectMonth = document.getElementById('select-month');
-        const btnGroupNumbers = document.getElementById('button-group-numbers');
+        // DOM 추출
+        const groupYear = document.getElementById('group-year');
+        const groupMonth = document.getElementById('group-month');
+        const groupNumber = document.getElementById('group-number');
         const answerDisplay = document.getElementById('answer-display');
         const viewerContainer = document.getElementById('pdf-viewer-container');
         const canvas = document.getElementById('pdf-canvas');
         const ctx = canvas.getContext('2d');
 
-        // 2. 초기화 및 이벤트 리스너 설정
+        // 실행 시 초기 버튼 생성
         window.addEventListener('DOMContentLoaded', () => {
-            updateQuestionButtons(); // 첫 실행 시 버튼 생성
-            
-            selectYear.addEventListener('change', updateQuestionButtons);
-            selectMonth.addEventListener('change', updateQuestionButtons);
+            initYearButtons();
+            initMonthButtons();
+            updateQuestionButtons();
         });
 
-        // 3. 선택된 년도/월에 따라 문제 번호 버튼 동적 생성
+        // 1. 연도 버튼들 동적 생성
+        function initYearButtons() {
+            years.forEach(year => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-year';
+                if(year === selectedYear) btn.classList.add('active');
+                btn.innerText = `${year}년`;
+                
+                btn.onclick = () => {
+                    document.querySelectorAll('.btn-year').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    selectedYear = year;
+                    updateQuestionButtons();
+                };
+                groupYear.appendChild(btn);
+            });
+        }
+
+        // 2. 월 버튼들 동적 생성
+        function initMonthButtons() {
+            months.forEach(month => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-month';
+                if(month === selectedMonth) btn.classList.add('active');
+                btn.innerText = `${parseInt(month)}월`; // '03월'을 '3월'로 표기
+                
+                btn.onclick = () => {
+                    document.querySelectorAll('.btn-month').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    selectedMonth = month;
+                    updateQuestionButtons();
+                };
+                groupMonth.appendChild(btn);
+            });
+        }
+
+        // 3. 연도-월 조합 변경에 따른 문제 번호 버튼 갱신
         function updateQuestionButtons() {
-            const key = `${selectYear.value}-${selectMonth.value}`;
-            btnGroupNumbers.innerHTML = ''; // 기존 버튼 제거
+            const key = `${selectedYear}-${selectedMonth}`;
+            groupNumber.innerHTML = ''; // 기존 번호 버튼 초기화
             
             const currentQuestions = examData[key];
             
             if (!currentQuestions) {
-                answerDisplay.innerText = "해당 날짜의 문제 데이터가 존재하지 않습니다.";
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                answerDisplay.innerText = `${selectedYear}년 ${parseInt(selectedMonth)}월의 문제 데이터가 등록되지 않았습니다.`;
+                ctx.clearRect(0, 0, canvas.width, canvas.height); // 화면 지우기
                 return;
             }
 
-            // 등록된 문제 번호만큼 버튼 생성
+            // 존재하는 번호만큼 단추 생성
             Object.keys(currentQuestions).forEach(num => {
                 const btn = document.createElement('button');
                 btn.className = 'btn-num';
                 btn.innerText = `${num}번`;
                 btn.onclick = () => loadAndFocusQuestion(key, num, btn);
-                btnGroupNumbers.appendChild(btn);
+                groupNumber.appendChild(btn);
             });
 
-            // 첫 데이터 초기화 안내
-            answerDisplay.innerText = `${selectYear.value}년 ${selectMonth.value}월 문제지를 불러올 준비가 되었습니다. 번호를 선택하세요.`;
+            answerDisplay.innerText = `${selectedYear}년 ${parseInt(selectedMonth)}월 문제지가 준비되었습니다. 풀이할 번호 버튼을 누르세요.`;
         }
 
-        // 4. 핵심 기능: PDF 로드, 특정 페이지 렌더링, 특정 위치 스크롤 포커싱
+        // 4. PDF 로드 및 특정 스크롤 영역 포커싱
         async function loadAndFocusQuestion(dateKey, qNum, activeBtn) {
-            // 버튼 활성화 스타일 변경
             document.querySelectorAll('.btn-num').forEach(b => b.classList.remove('active'));
             activeBtn.classList.add('active');
 
             const qInfo = examData[dateKey][qNum];
             if (!qInfo) return;
 
-            // 상단 바에 정답 표기
-            answerDisplay.innerHTML = `<strong>[${qNum}번 정답]</strong> &nbsp; ${qInfo.answer}`;
+            // 상단 정답 영역 업데이트
+            answerDisplay.innerHTML = `<strong>[${selectedYear}년 ${parseInt(selectedMonth)}월 ${qNum}번]</strong> &nbsp;&nbsp; ${qInfo.answer}`;
 
-            // PDF 파일 경로 설정 (예: pdfs/2026_03.pdf)
+            // PDF 파일명 빌드 (예: pdfs/2026_03.pdf)
             const pdfUrl = `pdfs/${dateKey.replace('-', '_')}.pdf`;
 
             try {
-                // 기존 렌더링 작업이 진행 중이라면 취소 처리 (렉 방지)
                 if (currentRenderTask) {
                     currentRenderTask.cancel();
                 }
 
-                // PDF 파일이 새로 바뀔 때만 네트워크에서 로드
                 if (!currentPdf || currentPdf._transport.filename !== pdfUrl) {
-                    answerDisplay.innerText = "PDF 문서를 불러오는 중입니다...";
+                    answerDisplay.innerText = "PDF 파일을 서버에서 불러오는 중...";
                     currentPdf = await pdfjsLib.getDocument(pdfUrl).promise;
                 }
 
-                // 지정된 페이지 가져오기
                 const page = await currentPdf.getPage(qInfo.page);
-                
-                // 지정된 비율(scale)로 뷰포트 설정
                 const viewport = page.getViewport({ scale: qInfo.scale });
+                
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
 
-                // 캔버스에 PDF 페이지 그리기
                 const renderContext = { canvasContext: ctx, viewport: viewport };
                 currentRenderTask = page.render(renderContext);
                 await currentRenderTask.promise;
 
-                // 렌더링 완료 후 스크롤 좌표 조절 (원하는 위치 확대 포커싱)
-                // targetY 비율을 기반으로 해당 픽셀 위치 계산 후 스크롤 이동
-                const scrollTargetY = canvas.offsetTop + (viewport.height * qInfo.targetY) - 50;
-                
+                // 타겟 Y좌표로 스크롤 이동 정렬
+                const scrollTargetY = canvas.offsetTop + (viewport.height * qInfo.targetY) - 40;
                 viewerContainer.scrollTo({
                     top: scrollTargetY,
-                    behavior: 'smooth' // 부드럽게 스크롤 이동
+                    behavior: 'smooth'
                 });
 
             } catch (error) {
                 console.error(error);
-                answerDisplay.innerText = `에러 발생: PDF 파일을 찾을 수 없거나 불러오지 못했습니다. 경로(${pdfUrl})를 확인해 주세요.`;
+                answerDisplay.innerText = `오류: PDF 파일을 찾을 수 없습니다. [${pdfUrl}] 경로를 확인해 주세요.`;
             }
         }
     </script>
