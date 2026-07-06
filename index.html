@@ -63,39 +63,40 @@
             <span class="row-title">연도</span>
             <div id="group-year" class="btn-group"></div>
         </div>
-
+    
         <div class="control-row">
             <span class="row-title">월</span>
             <div id="group-month" class="btn-group"></div>
         </div>
-
-        <div class="control-row" style="margin-bottom: 0; width: 100%;">
-            <span class="row-title" style="display: flex; align-items: center; gap: 8px; width: 100%;">
+    
+        <div class="control-row" style="margin-bottom: 0;">
+            <span class="row-title" style="display: flex; align-items: center; gap: 8px;">
                 번호 
-                <button id="btn-toggle-board" class="btn-toggle" style="background: #e67e22; color: white; font-weight: bold; font-size: 11px; padding: 4px 10px; border-radius: 3px; cursor: pointer; display: inline-block;">▲ 접기</button>
+                <button id="btn-toggle-board" class="btn-toggle" style="background: #e67e22; color: white; font-weight: bold; font-size: 11px; padding: 4px 10px; border-radius: 3px; cursor: pointer;">▲ 접기</button>
             </span>
         </div>
-        
+    
         <div id="toggle-number-zone">
             <div class="control-row" style="padding: 6px 0 4px 45px;">
                 <div id="group-number" class="btn-group"></div>
             </div>
         </div>
-        
-        <div id="toggle-number-zone">
-                <div class="control-row" style="padding: 6px 0 4px 45px;">
-                    <div id="group-number" class="btn-group"></div>
-                </div>
+    
+        <div class="info-and-pdf-control-bar">
+            <div class="answer-text" id="answer-display">
+                연도와 월을 선택한 후 문제 번호를 누르면 정답과 제어 창이 나타납니다.
             </div>
-        
-            <div class="info-and-pdf-control-bar">
-                <div class="answer-text" id="answer-display">
-                    연도와 월을 선택한 후 문제 번호를 누르면 정답과 제어 창이 나타납니다.
-                </div>
-                <div class="top-pdf-controls" id="top-controls-wrapper">
-                    </div>
+            <div class="top-pdf-controls" id="top-controls-wrapper">
+                <button id="btn-prev-page" title="이전 페이지">◀</button>
+                <span class="top-info-text"><span id="current-page-num">1</span>/<span id="total-pages-num">1</span></span>
+                <button id="btn-next-page" title="다음 페이지">▶</button>
+                <span style="color:#7f8c8d; padding: 0 2px;">|</span>
+                <button id="btn-zoom-out" title="축소">−</button>
+                <span class="top-info-text" id="zoom-percent">200%</span>
+                <button id="btn-zoom-in" title="확대">+</button>
             </div>
-        </header>
+        </div>
+    </header>
 
     <div class="main-container">
         <div id="pdf-viewer-container">
@@ -448,7 +449,10 @@
         function updateQuestionButtons() {
             const key = `${selectedYear}-${selectedMonth}`;
             groupNumber.innerHTML = '';
-            controlsWrapper.style.visibility = 'none'; 
+
+            if (controlsWrapper) {
+                controlsWrapper.style.display = 'none'; 
+            }
             
             const currentQuestions = examData[key];
             if (!currentQuestions) {
