@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>시험 문제 & 정답 뷰어</title>
+    <title>시험 문제 & 정답 뷰어 (확대/이동 기능 추가)</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     
@@ -13,16 +13,14 @@
 
         /* 상단 네비게이션 및 정답 영역 */
         header { background: #2c3e50; color: white; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 10; }
-        
-        /* 행별 레이아웃 구분을 위한 스타일 */
         .control-row { display: flex; align-items: center; gap: 15px; margin-bottom: 10px; flex-wrap: wrap; }
         .row-title { font-size: 14px; font-weight: bold; color: #bdc3c7; min-width: 50px; }
         .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
 
         /* 공통 버튼 스타일 */
-        button { padding: 6px 12px; font-size: 14px; border-radius: 4px; border: none; cursor: pointer; transition: all 0.2s; }
+        button { padding: 6px 12px; font-size: 14px; border-radius: 4px; border: none; cursor: pointer; transition: all 0.2s; user-select: none; }
         
-        /* 그룹별 버튼 색상 구분 */
+        /* 그룹별 버튼 색상 */
         .btn-year { background: #34495e; color: white; }
         .btn-year:hover { background: #1abc9c; }
         .btn-year.active { background: #1abc9c; font-weight: bold; }
@@ -39,11 +37,19 @@
         .answer-box { background: #ecf0f1; color: #2c3e50; padding: 10px 15px; border-radius: 4px; font-size: 16px; font-weight: bold; border-left: 5px solid #e74c3c; min-height: 44px; display: flex; align-items: center; margin-top: 5px; }
 
         /* 메인 컨텐츠 영역 */
-        .main-container { display: flex; flex: 1; overflow: hidden; background: #eee; }
+        .main-container { display: flex; flex: 1; overflow: hidden; background: #eee; position: relative; }
         
         /* PDF 뷰어 영역 (스크롤 가능) */
         #pdf-viewer-container { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 20px; position: relative; }
         #pdf-canvas { background: white; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+
+        /* [신규] PDF 하단 부동 컨트롤 바 (확대/페이지 이동) */
+        .pdf-controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(44, 62, 80, 0.9); padding: 10px 20px; border-radius: 30px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); color: white; z-index: 20; }
+        .pdf-controls button { background: #34495e; color: white; border-radius: 50%; width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; }
+        .pdf-controls button:hover { background: #3498db; }
+        .pdf-controls button:disabled { background: #7f8c8d; cursor: not-allowed; opacity: 0.5; }
+        .page-info, .zoom-info { font-size: 14px; font-weight: bold; min-width: 60px; text-align: center; }
+        .divider { width: 1px; height: 20px; background: #7f8c8d; }
     </style>
 </head>
 <body>
@@ -51,22 +57,16 @@
     <header>
         <div class="control-row">
             <span class="row-title">연도</span>
-            <div id="group-year" class="btn-group">
-                </div>
+            <div id="group-year" class="btn-group"></div>
         </div>
-
         <div class="control-row">
             <span class="row-title">월</span>
-            <div id="group-month" class="btn-group">
-                </div>
+            <div id="group-month" class="btn-group"></div>
         </div>
-
         <div class="control-row">
             <span class="row-title">번호</span>
-            <div id="group-number" class="btn-group">
-                </div>
+            <div id="group-number" class="btn-group"></div>
         </div>
-
         <div class="answer-box" id="answer-display">
             연도와 월을 선택한 후, 문제 번호를 클릭하면 정답이 표시됩니다.
         </div>
@@ -76,23 +76,32 @@
         <div id="pdf-viewer-container">
             <canvas id="pdf-canvas"></canvas>
         </div>
+
+        <div class="pdf-controls" id="pdf-controls-bar" style="display: none;">
+            <button id="btn-prev-page" title="이전 페이지">◀</button>
+            <span class="page-info"><span id="current-page-num">1</span> / <span id="total-pages-num">1</span> </span>
+            <button id="btn-next-page" title="다음 페이지">▶</button>
+            
+            <div class="divider"></div>
+            
+            <button id="btn-zoom-out" title="축소">−</button>
+            <span class="zoom-info" id="zoom-percent">200%</span>
+            <button id="btn-zoom-in" title="확대">+</button>
+        </div>
     </div>
 
     <script>
-        // PDF.js 워커 경로 설정
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
-        // 데이터 생성용 기본 옵션 배열
         const years = ["2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"];
         const months = ["03", "04", "06", "07", "09", "10", "11"];
 
-        // [데이터베이스 설정] 필요한 연도-월 조합의 문제 데이터들을 여기에 채워 넣으시면 됩니다.
         const examData = {
-            "2017-03": {
+            "2025-11": {
                 1: { page: 1, targetY: 0.1, scale: 2.0, answer: "정답: ③" },
                 2: { page: 1, targetY: 0.5, scale: 2.0, answer: "정답: ①" }
             },
-            "2025-09": {
+            "2026-03": {
                 1: { page: 1, targetY: 0.1, scale: 2.0, answer: "정답: ①" },
                 2: { page: 1, targetY: 0.5, scale: 2.0, answer: "정답: ④" },
                 3: { page: 2, targetY: 0.1, scale: 1.8, answer: "정답: ⑤" },
@@ -100,13 +109,16 @@
             }
         };
 
-        // 선택 상태 저장 변수
-        let selectedYear = "2026"; // 기본 초기값
-        let selectedMonth = "03"; // 기본 초기값
+        // 전역 관리 변수들
+        let selectedYear = "2026";
+        let selectedMonth = "03";
         let currentPdf = null;
         let currentRenderTask = null;
+        
+        let pdfPageNum = 1;      // 현재 보고 있는 페이지 번호
+        let pdfScale = 2.0;       // 현재 확대 배율
 
-        // DOM 추출
+        // DOM 요소 추출
         const groupYear = document.getElementById('group-year');
         const groupMonth = document.getElementById('group-month');
         const groupNumber = document.getElementById('group-number');
@@ -114,22 +126,26 @@
         const viewerContainer = document.getElementById('pdf-viewer-container');
         const canvas = document.getElementById('pdf-canvas');
         const ctx = canvas.getContext('2d');
+        
+        // 하단 컨트롤 바 관련 DOM
+        const controlsBar = document.getElementById('pdf-controls-bar');
+        const currentPageNumText = document.getElementById('current-page-num');
+        const totalPagesNumText = document.getElementById('total-pages-num');
+        const zoomPercentText = document.getElementById('zoom-percent');
 
-        // 실행 시 초기 버튼 생성
         window.addEventListener('DOMContentLoaded', () => {
             initYearButtons();
             initMonthButtons();
+            initManualControls(); // 하단 툴바 버튼 이벤트 매핑
             updateQuestionButtons();
         });
 
-        // 1. 연도 버튼들 동적 생성
         function initYearButtons() {
             years.forEach(year => {
                 const btn = document.createElement('button');
                 btn.className = 'btn-year';
                 if(year === selectedYear) btn.classList.add('active');
                 btn.innerText = `${year}년`;
-                
                 btn.onclick = () => {
                     document.querySelectorAll('.btn-year').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
@@ -140,14 +156,12 @@
             });
         }
 
-        // 2. 월 버튼들 동적 생성
         function initMonthButtons() {
             months.forEach(month => {
                 const btn = document.createElement('button');
                 btn.className = 'btn-month';
                 if(month === selectedMonth) btn.classList.add('active');
-                btn.innerText = `${parseInt(month)}월`; // '03월'을 '3월'로 표기
-                
+                btn.innerText = `${parseInt(month)}월`;
                 btn.onclick = () => {
                     document.querySelectorAll('.btn-month').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
@@ -158,20 +172,18 @@
             });
         }
 
-        // 3. 연도-월 조합 변경에 따른 문제 번호 버튼 갱신
         function updateQuestionButtons() {
             const key = `${selectedYear}-${selectedMonth}`;
-            groupNumber.innerHTML = ''; // 기존 번호 버튼 초기화
+            groupNumber.innerHTML = '';
+            controlsBar.style.display = 'none'; // 데이터 바뀔 때 툴바 숨김
             
             const currentQuestions = examData[key];
-            
             if (!currentQuestions) {
                 answerDisplay.innerText = `${selectedYear}년 ${parseInt(selectedMonth)}월의 문제 데이터가 등록되지 않았습니다.`;
-                ctx.clearRect(0, 0, canvas.width, canvas.height); // 화면 지우기
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
                 return;
             }
 
-            // 존재하는 번호만큼 단추 생성
             Object.keys(currentQuestions).forEach(num => {
                 const btn = document.createElement('button');
                 btn.className = 'btn-num';
@@ -183,7 +195,7 @@
             answerDisplay.innerText = `${selectedYear}년 ${parseInt(selectedMonth)}월 문제지가 준비되었습니다. 풀이할 번호 버튼을 누르세요.`;
         }
 
-        // 4. PDF 로드 및 특정 스크롤 영역 포커싱
+        // [핵심 함수 1] 문제 단추 클릭 시: 정해진 페이지 및 세로 스크롤 좌표로 강제 셋팅
         async function loadAndFocusQuestion(dateKey, qNum, activeBtn) {
             document.querySelectorAll('.btn-num').forEach(b => b.classList.remove('active'));
             activeBtn.classList.add('active');
@@ -191,24 +203,44 @@
             const qInfo = examData[dateKey][qNum];
             if (!qInfo) return;
 
-            // 상단 정답 영역 업데이트
             answerDisplay.innerHTML = `<strong>[${selectedYear}년 ${parseInt(selectedMonth)}월 ${qNum}번]</strong> &nbsp;&nbsp; ${qInfo.answer}`;
-
-            // PDF 파일명 빌드 (예: pdfs/2026_03.pdf)
             const pdfUrl = `pdfs/${dateKey.replace('-', '_')}.pdf`;
 
             try {
-                if (currentRenderTask) {
-                    currentRenderTask.cancel();
-                }
+                if (currentRenderTask) currentRenderTask.cancel();
 
                 if (!currentPdf || currentPdf._transport.filename !== pdfUrl) {
                     answerDisplay.innerText = "PDF 파일을 서버에서 불러오는 중...";
                     currentPdf = await pdfjsLib.getDocument(pdfUrl).promise;
                 }
 
-                const page = await currentPdf.getPage(qInfo.page);
-                const viewport = page.getViewport({ scale: qInfo.scale });
+                // 문제 지정 값으로 전역 페이지 및 스케일 업데이트
+                pdfPageNum = qInfo.page;
+                pdfScale = qInfo.scale;
+
+                // PDF 렌더링 진행
+                await renderPdfPage();
+                controlsBar.style.display = 'flex'; // 기능 컨트롤 바 활성화
+
+                // 렌더링 완료 직후 설정된 targetY 위치로 스크롤 포커싱
+                const scrollTargetY = canvas.offsetTop + (canvas.height * qInfo.targetY) - 40;
+                viewerContainer.scrollTo({ top: scrollTargetY, behavior: 'smooth' });
+
+            } catch (error) {
+                console.error(error);
+                answerDisplay.innerText = `오류: PDF 파일을 찾을 수 없습니다. 경로를 확인해 주세요.`;
+            }
+        }
+
+        // [핵심 함수 2] 실제 PDF 페이지를 브라우저에 그리는 공통 함수
+        async function renderPdfPage() {
+            if (!currentPdf) return;
+
+            try {
+                if (currentRenderTask) currentRenderTask.cancel();
+
+                const page = await currentPdf.getPage(pdfPageNum);
+                const viewport = page.getViewport({ scale: pdfScale });
                 
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
@@ -217,17 +249,57 @@
                 currentRenderTask = page.render(renderContext);
                 await currentRenderTask.promise;
 
-                // 타겟 Y좌표로 스크롤 이동 정렬
-                const scrollTargetY = canvas.offsetTop + (viewport.height * qInfo.targetY) - 40;
-                viewerContainer.scrollTo({
-                    top: scrollTargetY,
-                    behavior: 'smooth'
-                });
+                // 하단 툴바 UI에 현재 정보 동기화 업데이트
+                currentPageNumText.innerText = pdfPageNum;
+                totalPagesNumText.innerText = currentPdf.numPages;
+                zoomPercentText.innerText = `${Math.round(pdfScale * 100)}%`;
+
+                // 이전/다음 페이지 버튼 활성/비활성 제어
+                document.getElementById('btn-prev-page').disabled = (pdfPageNum <= 1);
+                document.getElementById('btn-next-page').disabled = (pdfPageNum >= currentPdf.numPages);
 
             } catch (error) {
-                console.error(error);
-                answerDisplay.innerText = `오류: PDF 파일을 찾을 수 없습니다. [${pdfUrl}] 경로를 확인해 주세요.`;
+                if(error.name !== 'RenderingCancelledException') {
+                    console.error(error);
+                }
             }
+        }
+
+        // [핵심 함수 3] 하단 컨트롤 바 수동 제어 리스너 설정
+        function initManualControls() {
+            // 1. 이전 페이지 이동
+            document.getElementById('btn-prev-page').onclick = () => {
+                if (pdfPageNum > 1) {
+                    pdfPageNum--;
+                    renderPdfPage();
+                    viewerContainer.scrollTop = 0; // 페이지 바뀔 땐 맨 위로 스크롤 초기화
+                }
+            };
+
+            // 2. 다음 페이지 이동
+            document.getElementById('btn-next-page').onclick = () => {
+                if (pdfPageNum < currentPdf.numPages) {
+                    pdfPageNum++;
+                    renderPdfPage();
+                    viewerContainer.scrollTop = 0;
+                }
+            };
+
+            // 3. 확대 (+) : 최대 400% 제한
+            document.getElementById('btn-zoom-in').onclick = () => {
+                if (pdfScale < 4.0) {
+                    pdfScale += 0.2;
+                    renderPdfPage();
+                }
+            };
+
+            // 4. 축소 (−) : 최소 50% 제한
+            document.getElementById('btn-zoom-out').onclick = () => {
+                if (pdfScale > 0.5) {
+                    pdfScale -= 0.2;
+                    renderPdfPage();
+                }
+            };
         }
     </script>
 </body>
