@@ -44,7 +44,7 @@
         .answer-text { font-size: 15px; font-weight: bold; flex: 1; min-width: 180px; }        
         
         /* 상단으로 이관된 PDF 미니 컨트롤러 */
-        .top-pdf-controls { display: flex; align-items: center; gap: 8px; background: #34495e; padding: 4px 10px; border-radius: 20px; color: white;}
+        .top-pdf-controls { display: none; align-items: center; gap: 8px; background: #34495e; padding: 4px 10px; border-radius: 20px; color: white;}
         .top-pdf-controls button { background: #2c3e50; color: white; border-radius: 50%; width: 26px; height: 26px; padding: 0; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
         .top-pdf-controls button:hover { background: #3498db; }
         .top-pdf-controls button:disabled { background: #95a5a6; opacity: 0.4; cursor: not-allowed; }
@@ -86,7 +86,7 @@
             <div class="answer-text" id="answer-display">
                 연도와 월을 선택한 후 문제 번호를 누르면 정답과 제어 창이 나타납니다.
             </div>
-            <div class="top-pdf-controls" id="top-controls-wrapper">
+            <div class="top-pdf-controls" id="top-controls-wrapper" style="display: none;">
                 <button id="btn-prev-page" title="이전 페이지">◀</button>
                 <span class="top-info-text"><span id="current-page-num">1</span>/<span id="total-pages-num">1</span></span>
                 <button id="btn-next-page" title="다음 페이지">▶</button>
@@ -449,10 +449,6 @@
         function updateQuestionButtons() {
             const key = `${selectedYear}-${selectedMonth}`;
             groupNumber.innerHTML = '';
-
-            if (controlsWrapper) {
-                controlsWrapper.style.display = 'none'; 
-            }
             
             const currentQuestions = examData[key];
             if (!currentQuestions) {
