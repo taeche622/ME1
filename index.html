@@ -3,53 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>시험 문제 & 정답 뷰어</title>
+    <title>시험 문제 & 정답 뷰어 (분할 화면 최적화)</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Malgun Gothic', sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        body { font-family: 'Malgun Gothic', sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: #eee; }
 
-        /* 상단 네비게이션 및 정답 영역 */
-        header { background: #2c3e50; color: white; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 10; }
-        .control-row { display: flex; align-items: center; gap: 15px; margin-bottom: 10px; flex-wrap: wrap; }
-        .row-title { font-size: 14px; font-weight: bold; color: #bdc3c7; min-width: 50px; }
-        .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
-
-        /* 공통 버튼 스타일 */
-        button { padding: 6px 12px; font-size: 14px; border-radius: 4px; border: none; cursor: pointer; transition: all 0.2s; user-select: none; }
+        /* 상단 고정 헤더 영역 */
+        header { background: #2c3e50; color: white; padding: 12px 15px; box-shadow: 0 3px 6px rgba(0,0,0,0.15); z-index: 10; display: flex; flex-direction: column; gap: 8px; }
         
-        /* 그룹별 버튼 색상 */
+        .control-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .row-title { font-size: 13px; font-weight: bold; color: #bdc3c7; min-width: 45px; }
+        .btn-group { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+
+        /* 버튼 기본 공통 스타일 */
+        button { padding: 5px 10px; font-size: 13px; border-radius: 4px; border: none; cursor: pointer; transition: all 0.15s; user-select: none; }
+        
+        /* 카테고리별 색상 */
         .btn-year { background: #34495e; color: white; }
-        .btn-year:hover { background: #1abc9c; }
-        .btn-year.active { background: #1abc9c; font-weight: bold; }
+        .btn-year:hover, .btn-year.active { background: #1abc9c; font-weight: bold; }
 
         .btn-month { background: #34495e; color: white; }
-        .btn-month:hover { background: #9b59b6; }
-        .btn-month.active { background: #9b59b6; font-weight: bold; }
+        .btn-month:hover, .btn-month.active { background: #9b59b6; font-weight: bold; }
 
-        .btn-num { background: #7f8c8d; color: white; }
-        .btn-num:hover { background: #e74c3c; }
-        .btn-num.active { background: #e74c3c; font-weight: bold; }
+        .btn-num { background: #7f8c8d; color: white; min-width: 38px; }
+        .btn-num:hover, .btn-num.active { background: #e74c3c; font-weight: bold; }
 
-        /* 정답 표시 바 */
-        .answer-box { background: #ecf0f1; color: #2c3e50; padding: 10px 15px; border-radius: 4px; font-size: 16px; font-weight: bold; border-left: 5px solid #e74c3c; min-height: 44px; display: flex; align-items: center; margin-top: 5px; }
+        /* 접기/펼치기 전용 토글 버튼 */
+        .btn-toggle { background: #e67e22; color: white; font-weight: bold; font-size: 12px; margin-left: 8px; }
+        .btn-toggle:hover { background: #d35400; }
+
+        /* 번호판 슬라이딩 컨테이너 */
+        #toggle-number-zone { display: block; overflow: hidden; transition: max-height 0.3s ease-out; max-height: 200px; }
+        #toggle-number-zone.collapsed { max-height: 0px !important; }
+
+        /* [핵심] 정답 및 PDF 제어 통합 레이아웃 바 */
+        .info-and-pdf-control-bar { display: flex; justify-content: space-between; align-items: center; background: #ecf0f1; color: #2c3e50; padding: 8px 12px; border-radius: 4px; border-left: 5px solid #e74c3c; min-height: 40px; margin-top: 2px; flex-wrap: wrap; gap: 10px; }
+        .answer-text { font-size: 15px; font-weight: bold; flex: 1; min-width: 180px; }
+        
+        /* 상단으로 이관된 PDF 미니 컨트롤러 */
+        .top-pdf-controls { display: flex; align-items: center; gap: 8px; background: #34495e; padding: 4px 10px; border-radius: 20px; color: white; }
+        .top-pdf-controls button { background: #2c3e50; color: white; border-radius: 50%; width: 26px; height: 26px; padding: 0; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+        .top-pdf-controls button:hover { background: #3498db; }
+        .top-pdf-controls button:disabled { background: #95a5a6; opacity: 0.4; cursor: not-allowed; }
+        .top-info-text { font-size: 12px; font-weight: bold; min-width: 50px; text-align: center; }
 
         /* 메인 컨텐츠 영역 */
-        .main-container { display: flex; flex: 1; overflow: hidden; background: #eee; position: relative; }
-        
-        /* PDF 뷰어 영역 (스크롤 가능) */
-        #pdf-viewer-container { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 20px; position: relative; }
-        #pdf-canvas { background: white; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
-
-        /* 하단 부동 제어 툴바 (중앙 정렬 보장 및 항상 노출) */
-        .pdf-controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(44, 62, 80, 0.95); padding: 10px 20px; border-radius: 30px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); color: white; z-index: 20; visibility: hidden; }
-        .pdf-controls button { background: #34495e; color: white; border-radius: 50%; width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; }
-        .pdf-controls button:hover { background: #3498db; }
-        .pdf-controls button:disabled { background: #7f8c8d; cursor: not-allowed; opacity: 0.5; }
-        .page-info, .zoom-info { font-size: 14px; font-weight: bold; min-width: 60px; text-align: center; }
-        .divider { width: 1px; height: 20px; background: #7f8c8d; }
+        .main-container { display: flex; flex: 1; overflow: hidden; position: relative; }
+        #pdf-viewer-container { flex: 1; overflow: auto; display: block; padding: 15px; position: relative; }
+        #pdf-canvas { background: white; box-shadow: 0 3px 8px rgba(0,0,0,0.15); display: block; margin: 0 auto; }
     </style>
 </head>
 <body>
@@ -59,34 +63,43 @@
             <span class="row-title">연도</span>
             <div id="group-year" class="btn-group"></div>
         </div>
+
         <div class="control-row">
             <span class="row-title">월</span>
             <div id="group-month" class="btn-group"></div>
         </div>
-        <div class="control-row">
-            <span class="row-title">번호</span>
-            <div id="group-number" class="btn-group"></div>
+
+        <div id="toggle-number-zone">
+            <div class="control-row" style="padding: 2px 0;">
+                <span class="row-title">번호</span>
+                <div id="group-number" class="btn-group"></div>
+            </div>
         </div>
-        <div class="answer-box" id="answer-display">
-            문제를 선택하면 정답이 이곳에 표시됩니다.
+
+        <div class="info-and-pdf-control-bar">
+            <div class="answer-text" id="answer-display">
+                번호를 선택하면 이곳에 정답이 노출됩니다.
+            </div>
+
+            <div class="top-pdf-controls" id="top-controls-wrapper" style="visibility: hidden;">
+                <button id="btn-prev-page" title="이전 페이지">◀</button>
+                <span class="top-info-text"><span id="current-page-num">1</span>/<span id="total-pages-num">1</span></span>
+                <button id="btn-next-page" title="다음 페이지">▶</button>
+                
+                <span style="color:#7f8c8d; padding: 0 2px;">|</span>
+                
+                <button id="btn-zoom-out" title="축소">−</button>
+                <span class="top-info-text" id="zoom-percent">200%</span>
+                <button id="btn-zoom-in" title="확대">+</button>
+                
+                <button id="btn-toggle-board" class="btn-toggle" title="번호판 여닫기">▲ 번호판 접기</button>
+            </div>
         </div>
     </header>
 
     <div class="main-container">
         <div id="pdf-viewer-container">
             <canvas id="pdf-canvas"></canvas>
-        </div>
-
-        <div class="pdf-controls" id="pdf-controls-bar">
-            <button id="btn-prev-page" title="이전 페이지">◀</button>
-            <span class="page-info"><span id="current-page-num">1</span> / <span id="total-pages-num">1</span> </span>
-            <button id="btn-next-page" title="다음 페이지">▶</button>
-            
-            <div class="divider"></div>
-            
-            <button id="btn-zoom-out" title="축소">−</button>
-            <span class="zoom-info" id="zoom-percent">200%</span>
-            <button id="btn-zoom-in" title="확대">+</button>
         </div>
     </div>
 
@@ -97,10 +110,6 @@
         const months = ["03", "04", "06", "07", "09", "10", "11"];
 
         const examData = {
-            "2025-11": {
-                1: { page: 1, targetY: 0.1, scale: 2.0, answer: "정답: ③" },
-                2: { page: 1, targetY: 0.5, scale: 2.0, answer: "정답: ①" }
-            },
             "2025-09": {
                 18: { page: 2, targetX: 0.5, targetY: 0.1, scale: 2.0, answer: '정답: 3' },
                 19: { page: 2, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 3' },
@@ -130,7 +139,67 @@
                 43: { page: 8, targetX: 0.5, targetY: 0.1, scale: 2.0, answer: '정답: 5' },
                 44: { page: 8, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 4' },
                 45: { page: 8, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 4' }
-            }
+                            }
+            "2026-03": {
+                18: { page: 2, targetX: 0.5, targetY: 0.1, scale: 2.0, answer: '정답: 2' },
+                19: { page: 2, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 1' },
+                20: { page: 2, targetX: 0.5, targetY: 0.7, scale: 2.0, answer: '정답: 2' },
+                21: { page: 3, targetX: 0.1, targetY: 0.1, scale: 2.0, answer: '정답: 5' },
+                22: { page: 3, targetX: 0.1, targetY: 0.5, scale: 2.0, answer: '정답: 5' },
+                23: { page: 3, targetX: 0.5, targetY: 0.1, scale: 2.0, answer: '정답: 3' },
+                24: { page: 3, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 5' },
+                25: { page: 4, targetX: 0.1, targetY: 0.1, scale: 2.0, answer: '정답: 4' },
+                26: { page: 4, targetX: 0.1, targetY: 0.5, scale: 2.0, answer: '정답: 3' },
+                27: { page: 4, targetX: 0.5, targetY: 0.1, scale: 2.0, answer: '정답: 4' },
+                28: { page: 4, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 5' },
+                29: { page: 5, targetX: 0.1, targetY: 0.1, scale: 2.0, answer: '정답: 2' },
+                30: { page: 5, targetX: 0.1, targetY: 0.5, scale: 2.0, answer: '정답: 3' },
+                31: { page: 5, targetX: 0.5, targetY: 0.1, scale: 2.0, answer: '정답: 1' },
+                32: { page: 5, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 1' },
+                33: { page: 6, targetX: 0.1, targetY: 0.1, scale: 2.0, answer: '정답: 2' },
+                34: { page: 6, targetX: 0.1, targetY: 0.5, scale: 2.0, answer: '정답: 1' },
+                35: { page: 6, targetX: 0.5, targetY: 0.1, scale: 2.0, answer: '정답: 4' },
+                36: { page: 6, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 3' },
+                37: { page: 7, targetX: 0.1, targetY: 0.1, scale: 2.0, answer: '정답: 5' },
+                38: { page: 7, targetX: 0.1, targetY: 0.5, scale: 2.0, answer: '정답: 4' },
+                39: { page: 7, targetX: 0.5, targetY: 0.1, scale: 2.0, answer: '정답: 3' },
+                40: { page: 7, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 1' },
+                41: { page: 8, targetX: 0.1, targetY: 0.1, scale: 2.0, answer: '정답: 3' },
+                42: { page: 8, targetX: 0.1, targetY: 0.5, scale: 2.0, answer: '정답: 5' },
+                43: { page: 8, targetX: 0.5, targetY: 0.1, scale: 2.0, answer: '정답: 2' },
+                44: { page: 8, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 5' },
+                45: { page: 8, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 3' }
+                            }
+            "2026-06": {
+                18: { page: 2, targetX: 0.5, targetY: 0.1, scale: 2.0, answer: '정답: 4' },
+                19: { page: 2, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 5' },
+                20: { page: 2, targetX: 0.5, targetY: 0.7, scale: 2.0, answer: '정답: 2' },
+                21: { page: 3, targetX: 0.1, targetY: 0.1, scale: 2.0, answer: '정답: 5' },
+                22: { page: 3, targetX: 0.1, targetY: 0.5, scale: 2.0, answer: '정답: 1' },
+                23: { page: 3, targetX: 0.5, targetY: 0.1, scale: 2.0, answer: '정답: 3' },
+                24: { page: 3, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 1' },
+                25: { page: 4, targetX: 0.1, targetY: 0.1, scale: 2.0, answer: '정답: 5' },
+                26: { page: 4, targetX: 0.1, targetY: 0.5, scale: 2.0, answer: '정답: 2' },
+                27: { page: 4, targetX: 0.5, targetY: 0.1, scale: 2.0, answer: '정답: 4' },
+                28: { page: 4, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 4' },
+                29: { page: 5, targetX: 0.1, targetY: 0.1, scale: 2.0, answer: '정답: 4' },
+                30: { page: 5, targetX: 0.1, targetY: 0.5, scale: 2.0, answer: '정답: 3' },
+                31: { page: 5, targetX: 0.5, targetY: 0.1, scale: 2.0, answer: '정답: 2' },
+                32: { page: 5, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 1' },
+                33: { page: 6, targetX: 0.1, targetY: 0.1, scale: 2.0, answer: '정답: 2' },
+                34: { page: 6, targetX: 0.1, targetY: 0.5, scale: 2.0, answer: '정답: 1' },
+                35: { page: 6, targetX: 0.5, targetY: 0.1, scale: 2.0, answer: '정답: 3' },
+                36: { page: 6, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 2' },
+                37: { page: 7, targetX: 0.1, targetY: 0.1, scale: 2.0, answer: '정답: 5' },
+                38: { page: 7, targetX: 0.1, targetY: 0.5, scale: 2.0, answer: '정답: 3' },
+                39: { page: 7, targetX: 0.5, targetY: 0.1, scale: 2.0, answer: '정답: 3' },
+                40: { page: 7, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 1' },
+                41: { page: 8, targetX: 0.1, targetY: 0.1, scale: 2.0, answer: '정답: 3' },
+                42: { page: 8, targetX: 0.1, targetY: 0.5, scale: 2.0, answer: '정답: 3' },
+                43: { page: 8, targetX: 0.5, targetY: 0.1, scale: 2.0, answer: '정답: 2' },
+                44: { page: 8, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 2' },
+                45: { page: 8, targetX: 0.5, targetY: 0.5, scale: 2.0, answer: '정답: 4' }
+                            }
         };
 
         let selectedYear = "2026";
@@ -149,10 +218,13 @@
         const canvas = document.getElementById('pdf-canvas');
         const ctx = canvas.getContext('2d');
         
-        const controlsBar = document.getElementById('pdf-controls-bar');
+        const controlsWrapper = document.getElementById('top-controls-wrapper');
         const currentPageNumText = document.getElementById('current-page-num');
         const totalPagesNumText = document.getElementById('total-pages-num');
         const zoomPercentText = document.getElementById('zoom-percent');
+        
+        const toggleNumberZone = document.getElementById('toggle-number-zone');
+        const btnToggleBoard = document.getElementById('btn-toggle-board');
 
         window.addEventListener('DOMContentLoaded', () => {
             initYearButtons();
@@ -196,7 +268,7 @@
         function updateQuestionButtons() {
             const key = `${selectedYear}-${selectedMonth}`;
             groupNumber.innerHTML = '';
-            controlsBar.style.visibility = 'hidden'; 
+            controlsWrapper.style.visibility = 'hidden'; 
             
             const currentQuestions = examData[key];
             if (!currentQuestions) {
@@ -208,12 +280,16 @@
             Object.keys(currentQuestions).forEach(num => {
                 const btn = document.createElement('button');
                 btn.className = 'btn-num';
-                btn.innerText = `${num}번`;
+                btn.innerText = num; // '번' 글자 삭제하여 가로 폭 절약
                 btn.onclick = () => loadAndFocusQuestion(key, num, btn);
                 groupNumber.appendChild(btn);
             });
 
-            answerDisplay.innerText = `${selectedYear}년 ${parseInt(selectedMonth)}월 문제지가 준비되었습니다. 번호를 누르세요.`;
+            answerDisplay.innerText = `${selectedYear}년 ${parseInt(selectedMonth)}월 문제지 준비 완료. 번호를 누르세요.`;
+            
+            // 새 월을 누르면 기본적으로 번호판은 열린 상태로 초기화
+            toggleNumberZone.classList.remove('collapsed');
+            btnToggleBoard.innerText = "▲ 번호판 접기";
         }
 
         async function loadAndFocusQuestion(dateKey, qNum, activeBtn) {
@@ -223,8 +299,7 @@
             const qInfo = examData[dateKey][qNum];
             if (!qInfo) return;
 
-            // 로딩 메시지 표기를 삭제하고 즉시 정답 및 대기 문구 출력
-            answerDisplay.innerHTML = `<strong>[${selectedYear}년 ${parseInt(selectedMonth)}월 ${qNum}번]</strong> &nbsp;&nbsp; ${qInfo.answer}`;
+            answerDisplay.innerHTML = `<strong>[${selectedYear}-${parseInt(selectedMonth)}월 ${qNum}번]</strong> &nbsp; ${qInfo.answer}`;
             const pdfUrl = `pdfs/${dateKey.replace('-', '_')}.pdf`;
 
             try {
@@ -238,10 +313,12 @@
                 pdfScale = qInfo.scale;
 
                 await renderPdfPage();
-                controlsBar.style.visibility = 'visible'; 
+                controlsWrapper.style.visibility = 'visible'; 
 
-                const scrollTargetY = canvas.offsetTop + (canvas.height * qInfo.targetY) - 40;
-                viewerContainer.scrollTo({ top: scrollTargetY, behavior: 'smooth' });
+                const scrollTargetX = canvas.offsetLeft + (canvas.width * (qInfo.targetX || 0)) - 10;
+                const scrollTargetY = canvas.offsetTop + (canvas.height * (qInfo.targetY || 0)) - 30;
+                
+                viewerContainer.scrollTo({ left: scrollTargetX, top: scrollTargetY, behavior: 'smooth' });
 
             } catch (error) {
                 console.error(error);
@@ -251,7 +328,6 @@
 
         async function renderPdfPage() {
             if (!currentPdf) return;
-
             try {
                 if (currentRenderTask) currentRenderTask.cancel();
 
@@ -273,41 +349,31 @@
                 document.getElementById('btn-next-page').disabled = (pdfPageNum >= currentPdf.numPages);
 
             } catch (error) {
-                if(error.name !== 'RenderingCancelledException') {
-                    console.error(error);
-                }
+                if(error.name !== 'RenderingCancelledException') console.error(error);
             }
         }
 
         function initManualControls() {
+            // 1. 이전/다음 페이지
             document.getElementById('btn-prev-page').onclick = () => {
-                if (pdfPageNum > 1) {
-                    pdfPageNum--;
-                    renderPdfPage();
-                    viewerContainer.scrollTop = 0; 
-                }
+                if (pdfPageNum > 1) { pdfPageNum--; renderPdfPage(); viewerContainer.scrollTop = 0; viewerContainer.scrollLeft = 0; }
             };
-
             document.getElementById('btn-next-page').onclick = () => {
-                if (pdfPageNum < currentPdf.numPages) {
-                    pdfPageNum++;
-                    renderPdfPage();
-                    viewerContainer.scrollTop = 0;
-                }
+                if (pdfPageNum < currentPdf.numPages) { pdfPageNum++; renderPdfPage(); viewerContainer.scrollTop = 0; viewerContainer.scrollLeft = 0; }
             };
 
+            // 2. 확대/축소
             document.getElementById('btn-zoom-in').onclick = () => {
-                if (pdfScale < 4.0) {
-                    pdfScale += 0.2;
-                    renderPdfPage();
-                }
+                if (pdfScale < 4.0) { pdfScale += 0.2; renderPdfPage(); }
+            };
+            document.getElementById('btn-zoom-out').onclick = () => {
+                if (pdfScale > 0.5) { pdfScale -= 0.2; renderPdfPage(); }
             };
 
-            document.getElementById('btn-zoom-out').onclick = () => {
-                if (pdfScale > 0.5) {
-                    pdfScale -= 0.2;
-                    renderPdfPage();
-                }
+            // 3. 번호판 접기 / 펼치기 토글 스위치 기능
+            btnToggleBoard.onclick = () => {
+                const isCollapsed = toggleNumberZone.classList.toggle('collapsed');
+                btnToggleBoard.innerText = isCollapsed ? "▼ 번호판 펼치기" : "▲ 번호판 접기";
             };
         }
     </script>
