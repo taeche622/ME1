@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>시험 문제 & 정답 뷰어</title>
+    <title>시험 문제 & 정답</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     
@@ -14,7 +14,7 @@
         /* 상단 고정 헤더 영역 */
         header { background: #2c3e50; color: white; padding: 12px 15px; box-shadow: 0 3px 6px rgba(0,0,0,0.15); z-index: 10; display: flex; flex-direction: column; gap: 8px; }
         
-        .control-row { display: flex;  align-items: flex-start;  gap: 12px;  margin-bottom: 10px; width: 100%;}
+        .control-row { display: flex; align-items: center; gap: 12px; margin-bottom: 2px; width: 100%; }
         .row-title { font-size: 13px; font-weight: bold; color: #bdc3c7; min-width: 45px; }
         .btn-group { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; align-items: center; }
 
@@ -31,20 +31,12 @@
         .btn-num { background: #7f8c8d; color: white; min-width: 38px; }
         .btn-num:hover, .btn-num.active { background: #e74c3c; font-weight: bold; }
 
-        /* 접기/펼치기 전용 토글 버튼 */
-        .btn-toggle { background: #e67e22; color: white; font-weight: bold; font-size: 11px; padding: 3px 8px; border-radius: 3px; margin-left: 8px; white-space: nowrap; }
-        .btn-toggle:hover { background: #d35400; }
-
-        /* 번호판 슬라이딩 컨테이너 */
-        #toggle-number-zone { display: block; overflow: hidden; transition: max-height 0.25s ease-out; max-height: 500px; width: 100%;}
-        #toggle-number-zone.collapsed { max-height: 0px !important; }
-
         /* 정답 및 PDF 제어 통합 레이아웃 바 */
-        .info-and-pdf-control-bar { display: flex; justify-content: space-between; align-items: center; background: #ecf0f1; color: #2c3e50; padding: 8px 12px; border-radius: 4px; border-left: 5px solid #e74c3c; min-height: 40px; margin-top: 2px; flex-wrap: wrap; gap: 10px; }
-        .answer-text { font-size: 15px; font-weight: bold; flex: 1; min-width: 180px; }        
+        .info-and-pdf-control-bar { display: flex; justify-content: space-between; align-items: center; background: #ecf0f1; color: #2c3e50; padding: 8px 12px; border-radius: 4px; border-left: 5px solid #e74c3c; min-height: 40px; margin-top: 6px; flex-wrap: wrap; gap: 10px; }
+        .answer-text { font-size: 15px; font-weight: bold; flex: 1; min-width: 180px; }
         
-        /* 상단으로 이관된 PDF 미니 컨트롤러 */
-        .top-pdf-controls { display: none; align-items: center; gap: 8px; background: #34495e; padding: 4px 10px; border-radius: 20px; color: white;}
+        /* 상단으로 완전 이관된 PDF 미니 컨트롤러 (기본 숨김 처리 후 JS 제어) */
+        .top-pdf-controls { display: none; align-items: center; gap: 8px; background: #34495e; padding: 4px 10px; border-radius: 20px; color: white; }
         .top-pdf-controls button { background: #2c3e50; color: white; border-radius: 50%; width: 26px; height: 26px; padding: 0; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
         .top-pdf-controls button:hover { background: #3498db; }
         .top-pdf-controls button:disabled { background: #95a5a6; opacity: 0.4; cursor: not-allowed; }
@@ -63,42 +55,36 @@
             <span class="row-title">연도</span>
             <div id="group-year" class="btn-group"></div>
         </div>
-    
+
         <div class="control-row">
             <span class="row-title">월</span>
             <div id="group-month" class="btn-group"></div>
         </div>
-    
-        <div class="control-row" style="margin-bottom: 0;">
-            <span class="row-title" style="display: flex; align-items: center; gap: 8px;">
-                번호 
-                <button id="btn-toggle-board" class="btn-toggle" style="background: #e67e22; color: white; font-weight: bold; font-size: 11px; padding: 4px 10px; border-radius: 3px; cursor: pointer;">▲ 접기</button>
-            </span>
+
+        <div class="control-row">
+            <span class="row-title">번호</span>
+            <div id="group-number" class="btn-group"></div>
         </div>
-    
-        <div id="toggle-number-zone">
-            <div class="control-row" style="padding: 6px 0 4px 45px;">
-                <div id="group-number" class="btn-group"></div>
-            </div>
-        </div>
-    
+
         <div class="info-and-pdf-control-bar">
             <div class="answer-text" id="answer-display">
                 연도와 월을 선택한 후 문제 번호를 누르면 정답과 제어 창이 나타납니다.
             </div>
-            <div class="top-pdf-controls" id="top-controls-wrapper" style="display: none;">
+
+            <div class="top-pdf-controls" id="top-controls-wrapper">
                 <button id="btn-prev-page" title="이전 페이지">◀</button>
                 <span class="top-info-text"><span id="current-page-num">1</span>/<span id="total-pages-num">1</span></span>
                 <button id="btn-next-page" title="다음 페이지">▶</button>
+                
                 <span style="color:#7f8c8d; padding: 0 2px;">|</span>
+                
                 <button id="btn-zoom-out" title="축소">−</button>
                 <span class="top-info-text" id="zoom-percent">200%</span>
                 <button id="btn-zoom-in" title="확대">+</button>
             </div>
         </div>
     </header>
-
-    <div class="main-container">
+<div class="main-container">
         <div id="pdf-viewer-container">
             <canvas id="pdf-canvas"></canvas>
         </div>
@@ -107,9 +93,10 @@
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
+        // 핵심 기본 배열 데이터 선언 (정상 복원)
         const years = ["2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"];
         const months = ["03", "04", "06", "07", "09", "10", "11"];
-
+        
         const examData = {
             "2024-06": {
                 18: { page: 2, targetX: 0.5, targetY: 0.1, scale: 2.0, answer: '정답: 2' },
@@ -403,9 +390,6 @@
         const currentPageNumText = document.getElementById('current-page-num');
         const totalPagesNumText = document.getElementById('total-pages-num');
         const zoomPercentText = document.getElementById('zoom-percent');
-        
-        const toggleNumberZone = document.getElementById('toggle-number-zone');
-        const btnToggleBoard = document.getElementById('btn-toggle-board');
 
         window.addEventListener('DOMContentLoaded', () => {
             initYearButtons();
@@ -445,10 +429,12 @@
                 groupMonth.appendChild(btn);
             });
         }
-        
+
         function updateQuestionButtons() {
             const key = `${selectedYear}-${selectedMonth}`;
             groupNumber.innerHTML = '';
+            
+            if (controlsWrapper) controlsWrapper.style.display = 'none'; 
             
             const currentQuestions = examData[key];
             if (!currentQuestions) {
@@ -466,11 +452,6 @@
             });
 
             answerDisplay.innerText = `${selectedYear}년 ${parseInt(selectedMonth)}월 문제지 준비 완료. 번호를 누르세요.`;
-            
-            if (toggleNumberZone && btnToggleBoard) {
-                toggleNumberZone.classList.remove('collapsed'); // 접힘 클래스 제거 (열기)
-                btnToggleBoard.innerText = "▲ 접기"; // 텍스트도 '접기'로 초기화
-            }
         }
 
         async function loadAndFocusQuestion(dateKey, qNum, activeBtn) {
@@ -485,20 +466,22 @@
 
             try {
                 if (currentRenderTask) currentRenderTask.cancel();
+
                 if (!currentPdf || currentPdf._transport.filename !== pdfUrl) {
                     currentPdf = await pdfjsLib.getDocument(pdfUrl).promise;
                 }
-        
+
                 pdfPageNum = qInfo.page;
                 pdfScale = qInfo.scale;
-        
+
                 await renderPdfPage();
-                controlsWrapper.style.display = 'flex'; 
-        
+                if (controlsWrapper) controlsWrapper.style.display = 'flex'; 
+
                 const scrollTargetX = canvas.offsetLeft + (canvas.width * (qInfo.targetX || 0)) - 10;
                 const scrollTargetY = canvas.offsetTop + (canvas.height * (qInfo.targetY || 0)) - 30;
+                
                 viewerContainer.scrollTo({ left: scrollTargetX, top: scrollTargetY, behavior: 'smooth' });
-        
+
             } catch (error) {
                 console.error(error);
                 answerDisplay.innerText = `오류: PDF 파일을 찾을 수 없습니다. 경로를 확인해 주세요.`;
@@ -546,15 +529,6 @@
             document.getElementById('btn-zoom-out').onclick = () => {
                 if (pdfScale > 0.5) { pdfScale -= 0.2; renderPdfPage(); }
             };
-
-            // 주황색 토글 단추 이벤트 핸들러
-            const targetToggleBtn = document.getElementById('btn-toggle-board');
-            if (targetToggleBtn) {
-                targetToggleBtn.onclick = () => {
-                    const isCollapsed = toggleNumberZone.classList.toggle('collapsed');
-                    targetToggleBtn.innerText = isCollapsed ? "▼ 펼치기" : "▲ 접기";
-                };
-            }
         }
     </script>
 </body>
